@@ -1,0 +1,33 @@
+#ifdef VERTEX_SHADER
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aUv;
+layout (location = 3) in vec4 aColor;
+
+out vec2 TexCoords;
+out vec4 VertexColor;
+
+uniform mat4 Projection;
+
+void main() {
+    gl_Position = Projection * vec4(aPos.xy, 0.0, 1.0); 
+    TexCoords = aUv;
+    VertexColor = aColor;
+}  
+#endif // VERTEX_SHADER
+#ifdef FRAGMENT_SHADER
+
+out vec4 FragColor;
+  
+in vec2 TexCoords;
+in vec4 VertexColor;
+
+uniform sampler2D texture0;
+
+void main() { 
+
+    vec4 tex = texture(texture0, TexCoords);
+    FragColor = vec4(VertexColor.xyz, tex.a * VertexColor.a);
+}
+
+#endif // FRAGMENT_SHADER
