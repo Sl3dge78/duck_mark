@@ -90,6 +90,7 @@ main :: () {
         "color.frag", 
         "skinned.vert",
         "static.vert",
+        "static_inst.vert",
         "ui.vert",
         "ui.frag",];
 

@@ -1,25 +1,81 @@
 
 Input_Reader_Fn :: #type (self: *void, gs: *Game_State, event: SDL_Event);
 
+PARALLEL_DUCKS :: 1000;
+MAX_DUCKS :: 20000;
+AREA_SIZE :: 50;
+INITIAL_DUCKS :: 1000;
+
 Game_State :: struct {
     font16: Font;
     shadowmap_finished_semaphore: VkSemaphore;
 
     quad_mesh: Mesh;
 
-    bunny_mesh: Mesh;
-    bunny_tex: Texture;
-    bunny_desc: VkDescriptorSet;
+    duck_mesh: Mesh;
+    duck_tex: Texture;
+    duck_desc: VkDescriptorSet;
 
     player: Player;
 
     ducks: [..]Duck;
-}
 
+    instance_set_layout: VkDescriptorSetLayout;
+    instance_data_desc_set : VkDescriptorSet;
+    instance_data_buffer: Buffer;
+
+    material: Material;
+
+    thread_group: Thread_Group;
+}
 
 Duck :: struct {
     position: Vector3;
     velocity: Vector3;
+}
+
+create_material :: (instance_set_layout: VkDescriptorSetLayout) -> Material {
+    result: Material;
+
+    vtx := create_shader_module(global_renderer.device, "shaders/static_inst.vert.spv");
+    defer vkDestroyShaderModule(global_renderer.device, vtx, null);
+
+    frag := create_shader_module(global_renderer.device, "shaders/color.frag.spv");
+    defer vkDestroyShaderModule(global_renderer.device, frag, null);
+
+    {   // Shadowmap   
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_descriptor_set_layouts(*builder, 
+            global_renderer.camera_set_layout,
+            global_renderer.empty_set_layout,
+            global_renderer.empty_set_layout,
+            instance_set_layout);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
+        Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
+        Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
+        result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, global_renderer.device);
+        log("Shadowmap pipeline created.");
+    }
+
+    {   // Color   
+        builder: Pipeline_Builder;
+        Pipeline_Builder.add_descriptor_set_layouts(*builder, 
+            global_renderer.camera_set_layout,
+            global_renderer.shadowmap_layout,
+            global_renderer.single_texture_layout,
+            instance_set_layout);
+        Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
+        Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
+        Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
+        Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
+        Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
+        Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, global_renderer.device);
+        log("Color pipeline created.");
+    }
+    return result;
 }
 
 game_state_create :: (using state: *Game_State) {
@@ -32,13 +88,12 @@ game_state_create :: (using state: *Game_State) {
         .{.{- 0.5, 0, - 0.5}, UP, .{0, 1}, .{1, 1, 1, 1}},], 
         .[0, 1, 2, 0, 2, 3]);
 
-    bunny_mesh = load_mesh_from_file("res/Duck.gltf");
-    bunny_tex = texture_from_file("res/DuckCM.png");
-    bunny_desc = create_texture_descriptor_set(bunny_tex);
+    duck_mesh = load_mesh_from_file("res/Duck.gltf");
+    duck_tex = texture_from_file("res/DuckCM.png");
+    duck_desc = create_texture_descriptor_set(duck_tex);
 
-    NB_DUCKS :: 1000;
 
-    for 0..NB_DUCKS {
+    for 0..INITIAL_DUCKS - 1 {
         duck := new_duck();
         array_add(*ducks, duck);
     }
@@ -46,6 +101,47 @@ game_state_create :: (using state: *Game_State) {
     player.transform.position = .{0, 25, 75};
         
     global_renderer.lights[0] = xyzw(unit_vector(.{-1, -1, -1}), 0);
+
+    instance_data_buffer = buffer_create(MAX_DUCKS * size_of(Instance_Data), .STORAGE_BUFFER_BIT, "Instance data");
+    instance_set_layout = create_descriptor_set_layout(global_renderer.device, .[.{
+        binding = 0,
+        descriptorType = .STORAGE_BUFFER,
+        descriptorCount = 1,
+        stageFlags = .VERTEX_BIT,
+    }]);
+    material = create_material(instance_set_layout);
+
+    alloc_info := VkDescriptorSetAllocateInfo.{
+        descriptorPool = global_renderer.descriptor_pool,
+        descriptorSetCount = 1,
+        pSetLayouts = *instance_set_layout,
+    };
+    Vk_Check(vkAllocateDescriptorSets(global_renderer.device, *alloc_info, *instance_data_desc_set));
+    update_instance_data_buffer(state);
+
+    num_cpus := get_number_of_processors() / 2;
+    num_threads := max(num_cpus - 1, 2);
+    thread_group.logging = false;
+    init(*thread_group, num_threads, update_duck);
+    start(*thread_group);
+}
+
+update_instance_data_buffer :: (using self: *Game_State) {
+    buffer_info := VkDescriptorBufferInfo.{
+        buffer = instance_data_buffer.handle,
+        offset = 0,
+        range = instance_data_buffer.size,
+    };
+
+    writes := VkWriteDescriptorSet.[.{
+        dstSet = instance_data_desc_set,
+        dstBinding = 0,
+        dstArrayElement = 0,
+        descriptorType = .STORAGE_BUFFER,
+        descriptorCount = 1,
+        pBufferInfo = *buffer_info
+    }];
+    vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
 
 }
 
@@ -65,16 +161,29 @@ destroy :: (using state: *Game_State) {
 game_state_input_event :: (using state: *Game_State, event: SDL_Event) {
 }
 
-game_state_update :: (using state: *Game_State, delta_time: float) {
-    player_update(*state.player, state, delta_time);
-    SIZE :: 50;
-    for *ducks {
-        it.position += (it.velocity * delta_time);
-        if it.position.x > SIZE { 
-            it.position.x = SIZE;
+Instance_Matrices :: struct {
+    xform: Matrix4;
+    inverse: Matrix4;
+}
+
+Duck_In_Out_Data :: struct {
+    nb: u32;
+    offset: u32;
+    delta_time: float;
+    ducks: []Duck;
+    buffer: []Instance_Matrices;
+}
+
+update_duck :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {
+    duck_data := cast(*Duck_In_Out_Data)work;
+
+    for *duck_data.ducks {
+        it.position += (it.velocity * duck_data.delta_time);
+        if it.position.x > AREA_SIZE { 
+            it.position.x = AREA_SIZE;
             it.velocity.x *= -1;
-        } else if it.position.x < -SIZE {
-            it.position.x = -SIZE;
+        } else if it.position.x < -AREA_SIZE {
+            it.position.x = -AREA_SIZE;
             it.velocity.x *= -1;
         }
 
@@ -83,26 +192,81 @@ game_state_update :: (using state: *Game_State, delta_time: float) {
             it.position.y = 0;
         }
 
-        if it.position.z > SIZE { 
-            it.position.z = SIZE;
+        if it.position.z > AREA_SIZE { 
+            it.position.z = AREA_SIZE;
             it.velocity.z *= -1;
-        } else if it.position.z < -SIZE {
-            it.position.z = -SIZE;
+        } else if it.position.z < -AREA_SIZE {
+            it.position.z = -AREA_SIZE;
             it.velocity.z *= -1;
         }
 
-        it.velocity.y -= 9.81 * delta_time;
+        it.velocity.y -= 9.81 * duck_data.delta_time;
 
         it.velocity *= 0.999; // damp
+
+        mat := make_translation_matrix4(it.position) * make_scale_matrix4(.{0.01, 0.01, 0.01});
+        duck_data.buffer[it_index].xform = transpose(mat); 
+        duck_data.buffer[it_index].inverse = transpose(inverse(mat));
     }
 
-    if mouse_left() {
+    return .CONTINUE;
+}
+
+update_ducks :: (using state: *Game_State, delta_time: float) {
+    buf_ptr := buffer_map(*instance_data_buffer);
+    defer buffer_unmap(*instance_data_buffer);
+
+    i := 0;
+    work_count := 0;
+    while i < ducks.count {
+        work := New(Duck_In_Out_Data,, temp);
+        end := min(i + PARALLEL_DUCKS, ducks.count);
+        work.nb = xx (end - i);
+
+        work.offset = xx i;
+
+        work.delta_time = delta_time;
+        work.ducks.data = ducks.data + i;
+        work.ducks.count = work.nb;
+
+        work.buffer.data = buf_ptr + i * size_of(Instance_Matrices);
+        work.buffer.count = work.nb;
+
+        add_work(*thread_group, work, tprint("% - %", i, end));
+        i += end;
+        work_count += 1;
+    }
+
+    // Wait for the threads to finish
+    while work_count > 0 {
+        sleep_milliseconds(1);
+        results := get_completed_work(*thread_group);
+
+        for results {
+            // data := cast(*Duck_In_Out_Data) it;
+
+            // for 0..data.nb - 1 {
+            //     ducks[it + data.offset] = data.ducks[it];
+            // }
+        }
+
+        work_count -= results.count;
+    }
+}
+
+game_state_update :: (using state: *Game_State, delta_time: float) {
+    player_update(*state.player, state, delta_time);
+
+    if ducks.count < MAX_DUCKS && mouse_left() {
         for 0..100 {
             duck := new_duck();
             array_add(*ducks, duck);
+            if ducks.count >= MAX_DUCKS then break;
         }
         console_message("NB Ducks: %", ducks.count);
     }
+
+    update_ducks(state, delta_time,, logger = runtime_support_default_logger);
 }
 
 game_state_draw :: (using state: *Game_State, frame_data: *Frame_Data) {
@@ -180,41 +344,31 @@ render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
         vkCmdBeginRendering(command_buffers[1], *rendering_info);
     }
 
-    // @Speed: The fact that we have to split the color and shadowpass is annoying
-    // Could be fixed if we have all the render data uploaded to the gpu, and use instances/indices
-    // to look it up. Each shader will lookup what it needs and we're good
-    mats := NewArray(ducks.count, Matrix4,, temp);
-    for ducks {
-        mats[it_index] = make_translation_matrix4(it.position) * make_scale_matrix4(.{0.01, 0.01, 0.01});
+    {
+        command_buffer := command_buffers[0];
+        // Quad
+        layout := bind_material(command_buffer, global_renderer.static_mesh_material, .SHADOWMAP);
+        set_push_constants(make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2}), command_buffer, layout);
+        draw(quad_mesh, command_buffer);
+
+        layout = bind_material(command_buffer, state.material, .SHADOWMAP);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 3, 1, *instance_data_desc_set, 0, null);
+        draw_instances(duck_mesh, command_buffer, xx ducks.count);
     }
 
     {
-        bind_material(command_buffers[0], global_renderer.static_mesh_material, .SHADOWMAP);
-        layout := global_renderer.static_mesh_material.shadowmap.layout;
-        // Quad
-        set_push_constants(make_scale_matrix4(.{100, 1, 100}), command_buffers[0], layout);
-        draw(quad_mesh, command_buffers[0]);
-
-        for mats {
-            set_push_constants(it, command_buffers[0], layout);
-            draw(bunny_mesh, command_buffers[0]);
-        }
-    }
-
-    {
-        bind_material(command_buffers[1], global_renderer.static_mesh_material, .COLOR);
-        layout := global_renderer.static_mesh_material.color.layout;
+        command_buffer := command_buffers[1];
 
         // Quad
-        set_push_constants(make_scale_matrix4(.{100, 1, 100}), command_buffers[1], layout);
-        bind_diffuse(global_renderer.empty_texture_descriptor_set, command_buffers[1], layout);
-        draw(quad_mesh, command_buffers[1]);
+        layout := bind_material(command_buffer, global_renderer.static_mesh_material, .COLOR);
+        set_push_constants(make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2}), command_buffer, layout);
+        bind_diffuse(global_renderer.empty_texture_descriptor_set, command_buffer, layout);
+        draw(quad_mesh, command_buffer);
 
-        bind_diffuse(bunny_desc, command_buffers[1], layout);
-        for mats {
-            set_push_constants(it, command_buffers[1], layout);
-            draw(bunny_mesh, command_buffers[1]);
-        }
+        layout = bind_material(command_buffer, state.material, .COLOR);
+        vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 3, 1, *instance_data_desc_set, 0, null);
+        bind_diffuse(duck_desc, command_buffer, layout);
+        draw_instances(duck_mesh, command_buffer, xx ducks.count);
     }
 
     for command_buffers {
