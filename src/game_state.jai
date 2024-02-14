@@ -2,9 +2,10 @@
 Input_Reader_Fn :: #type (self: *void, gs: *Game_State, event: SDL_Event);
 
 PARALLEL_DUCKS :: 1000;
-MAX_DUCKS :: 20000;
-AREA_SIZE :: 50;
-INITIAL_DUCKS :: 1000;
+MAX_DUCKS :: 10000;
+AREA_SIZE :: 25;
+INITIAL_DUCKS :: 500;
+DUCKS_PER_FRAME :: 10;
 
 Game_State :: struct {
     font16: Font;
@@ -93,6 +94,7 @@ game_state_create :: (using state: *Game_State) {
     duck_desc = create_texture_descriptor_set(duck_tex);
 
 
+    array_reserve(*ducks, MAX_DUCKS);
     for 0..INITIAL_DUCKS - 1 {
         duck := new_duck();
         array_add(*ducks, duck);
@@ -146,12 +148,13 @@ update_instance_data_buffer :: (using self: *Game_State) {
 }
 
 new_duck :: () -> Duck {
-    vel :=  unit_vector(.{
+    vel := .{
         1 - 2 * random_get_zero_to_one(), 
+        0,
+        // 1 - 2 * random_get_zero_to_one(), 
         1 - 2 * random_get_zero_to_one(), 
-        1 - 2 * random_get_zero_to_one(), 
-    }) * 50;
-    return .{.{0, 10, 0}, vel};
+    } * 5;
+    return .{.{0, 25, 0}, vel};
 }
 
 destroy :: (using state: *Game_State) {
@@ -233,7 +236,7 @@ update_ducks :: (using state: *Game_State, delta_time: float) {
         work.buffer.count = work.nb;
 
         add_work(*thread_group, work, tprint("% - %", i, end));
-        i += end;
+        i += work.nb;
         work_count += 1;
     }
 
@@ -258,7 +261,7 @@ game_state_update :: (using state: *Game_State, delta_time: float) {
     player_update(*state.player, state, delta_time);
 
     if ducks.count < MAX_DUCKS && mouse_left() {
-        for 0..100 {
+        for 0..DUCKS_PER_FRAME {
             duck := new_duck();
             array_add(*ducks, duck);
             if ducks.count >= MAX_DUCKS then break;
