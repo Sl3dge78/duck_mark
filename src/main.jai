@@ -13,12 +13,9 @@ main :: () {
     game_state_create(*game_state);
     defer destroy(*game_state);
 
-    ZoneScoped();
-
     delta_time : float = 0;
     running := true;
     while running {
-        FrameMark();
         global_engine.frame_start = SDL_GetPerformanceCounter();
 
         event: SDL_Event;

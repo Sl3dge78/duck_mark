@@ -102,7 +102,6 @@ game_state_create :: (using state: *Game_State) {
 
     player.transform.position = .{0, 25, 75};
         
-    global_renderer.lights[0] = xyzw(unit_vector(.{-1, -1, -1}), 0);
 
     instance_data_buffer = buffer_create(MAX_DUCKS * size_of(Instance_Data), .STORAGE_BUFFER_BIT, "Instance data");
     instance_set_layout = create_descriptor_set_layout(global_renderer.device, .[.{
@@ -277,7 +276,6 @@ game_state_draw :: (using state: *Game_State, frame_data: *Frame_Data) {
 }
 
 render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
-    set_view_matrix(player_get_camera_matrix(*state.player));
 
     command_buffers: [2] VkCommandBuffer;
 
@@ -293,6 +291,33 @@ render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
     };
     for command_buffers {
         Vk_Check(vkBeginCommandBuffer(it, *begin_info));
+    }
+    
+     {   // Update uniforms
+        lights : [16]Vector4;
+        lights[0] = xyzw(unit_vector(.{-1, -1, -1}), 0);
+
+        size:: 20;
+        light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
+        light_view := make_look_at_matrix(.{0, 0, 0}, lights[0].xyz, .{0, 1, 0}, false);
+        view := player_get_camera_matrix(*state.player);
+
+        matrices := Global_Matrices.{
+            projection = transpose(global_renderer.projection),
+            view = transpose(view),
+            light = transpose(light_proj * light_view),
+            light_count = 1,
+            light_vec = lights,
+        };
+        uniform_write(global_renderer.global_matrices_uniform, *matrices);
+
+        shadowmap_matrices := Global_Matrices.{
+            projection = transpose(light_proj),
+            view = transpose(light_view),
+            light = matrices.light,
+            light_vec = matrices.lights
+        };
+        uniform_write(global_renderer.shadowmap_matrices_uniform, *shadowmap_matrices);
     }
 
     // Begin render pass

@@ -1,7 +1,6 @@
 
 #import "Basic"()(MEMORY_DEBUGGER = true);
 #import "Math";
-#import "SDL";
 #import "System";
 #import "String";
 #import "Bucket_Array";
@@ -10,11 +9,11 @@
 #import "Process";
 #import "Thread";
 
-#load "modules/sl3dge-jai/module.jai";
+#import "sl3dge-jai"(BACKEND="VULKAN");
 #import,dir "modules/sl3dge-jai/modules/jaison";
 
-#import "jai-tracy"(IMPORT_MODE = .CLIENT, ENABLED = ENABLE_TRACY);
-ENABLE_TRACY :: true;
+// #import "jai-tracy"(IMPORT_MODE = .CLIENT, ENABLED = ENABLE_TRACY);
+// ENABLE_TRACY :: true;
 
 #load "src/main.jai";
 #load "src/game_state.jai";
