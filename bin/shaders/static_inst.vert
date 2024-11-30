@@ -26,7 +26,7 @@ struct InstanceData {
     mat4 inverse;
 };
 
-layout(set = 3, binding = 0) buffer InstanceBuffer {
+layout(set = 3, binding = 0) readonly buffer InstanceBuffer {
     InstanceData data[];
 };
 

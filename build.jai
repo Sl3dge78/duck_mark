@@ -25,7 +25,7 @@
     #import "Compiler";
 
     build_options : Build_Options_During_Compile;
-    build_options.output_path = "bin/";
+    // build_options.output_path = "bin/";
     build_options.output_executable_name = "out";
 
     #if OS == .LINUX {

@@ -21,19 +21,16 @@ main :: () {
         event: SDL_Event;
         while SDL_PollEvent(*event) {
             if event.type == {
-                case SDL_QUIT; running = false;
-                case SDL_WINDOWEVENT; {
-                    if event.window.event == {
-                        // case SDL_WINDOWEVENT_RESIZED;
+                case .QUIT; running = false;
+                case .WINDOW_RESIZED; {
                             // Renderer.update_window(window); @TODO Migration
-                    }
                 }
                 case; game_state_input_event(*game_state, event);
             }
         }
         
-        if key_just_pressed(SDL_SCANCODE_LALT) {
-            SDL_SetRelativeMouseMode(xx !(cast(bool)SDL_GetRelativeMouseMode()));
+        if key_just_pressed(.SDL_SCANCODE_LALT) {
+            SDL_SetWindowRelativeMouseMode(global_engine.window, xx !(cast(bool)SDL_GetWindowRelativeMouseMode(global_engine.window)));
         }   
 
         engine_update(delta_time);

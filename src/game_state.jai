@@ -56,6 +56,7 @@ create_material :: (instance_set_layout: VkDescriptorSetLayout) -> Material {
         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
         Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, global_renderer.device);
         log("Shadowmap pipeline created.");
     }
@@ -73,6 +74,7 @@ create_material :: (instance_set_layout: VkDescriptorSetLayout) -> Material {
         Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
         Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
         Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
+        Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
         result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, global_renderer.device);
         log("Color pipeline created.");
     }
@@ -158,6 +160,12 @@ new_duck :: () -> Duck {
 
 destroy :: (using state: *Game_State) {
     vkDestroySemaphore(global_renderer.device, shadowmap_finished_semaphore, null);
+    destroy(*duck_mesh);
+    destroy(*duck_tex);
+    destroy(duck_desc);
+    destroy(*instance_data_buffer);
+    // destroy(instance_set_layout);
+    // destroy(*material);
 }
 
 game_state_input_event :: (using state: *Game_State, event: SDL_Event) {
@@ -259,7 +267,7 @@ update_ducks :: (using state: *Game_State, delta_time: float) {
 game_state_update :: (using state: *Game_State, delta_time: float) {
     player_update(*state.player, state, delta_time);
 
-    if ducks.count < MAX_DUCKS && mouse_left() {
+    if ducks.count < MAX_DUCKS && mouse_down(.LEFT) {
         for 0..DUCKS_PER_FRAME {
             duck := new_duck();
             array_add(*ducks, duck);
@@ -309,15 +317,15 @@ render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
             light_count = 1,
             light_vec = lights,
         };
-        uniform_write(global_renderer.global_matrices_uniform, *matrices);
+        uniform_buffer_write(*frame_data.camera_descriptor, *matrices);
 
         shadowmap_matrices := Global_Matrices.{
             projection = transpose(light_proj),
             view = transpose(light_view),
             light = matrices.light,
-            light_vec = matrices.lights
+            light_vec = matrices.light_vec
         };
-        uniform_write(global_renderer.shadowmap_matrices_uniform, *shadowmap_matrices);
+        uniform_buffer_write(*frame_data.shadowmap_camera_descriptor, *shadowmap_matrices);
     }
 
     // Begin render pass
@@ -375,11 +383,13 @@ render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
     {
         command_buffer := command_buffers[0];
         // Quad
-        layout := bind_material(command_buffer, global_renderer.static_mesh_material, .SHADOWMAP);
+        layout := global_renderer.static_mesh_material.shadowmap.layout;
+        bind_material(command_buffer, global_renderer.static_mesh_material, .SHADOWMAP);
         set_push_constants(make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2}), command_buffer, layout);
         draw(quad_mesh, command_buffer);
 
-        layout = bind_material(command_buffer, state.material, .SHADOWMAP);
+        layout = state.material.shadowmap.layout;
+        bind_material(command_buffer, state.material, .SHADOWMAP);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 3, 1, *instance_data_desc_set, 0, null);
         draw_instances(duck_mesh, command_buffer, xx ducks.count);
     }
@@ -388,12 +398,14 @@ render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
         command_buffer := command_buffers[1];
 
         // Quad
-        layout := bind_material(command_buffer, global_renderer.static_mesh_material, .COLOR);
+        layout := global_renderer.static_mesh_material.color.layout;
+        bind_material(command_buffer, global_renderer.static_mesh_material, .COLOR);
         set_push_constants(make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2}), command_buffer, layout);
         bind_diffuse(global_renderer.empty_texture_descriptor_set, command_buffer, layout);
         draw(quad_mesh, command_buffer);
 
-        layout = bind_material(command_buffer, state.material, .COLOR);
+        layout = state.material.color.layout;
+        bind_material(command_buffer, state.material, .COLOR);
         vkCmdBindDescriptorSets(command_buffer, .GRAPHICS, layout, 3, 1, *instance_data_desc_set, 0, null);
         bind_diffuse(duck_desc, command_buffer, layout);
         draw_instances(duck_mesh, command_buffer, xx ducks.count);
