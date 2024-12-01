@@ -4,7 +4,7 @@ layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec2 aUv;
 layout(location = 2) in vec4 aColor;
 
-layout(push_constant) uniform constants {
+layout(set = 1, binding = 0) uniform constants {
     vec2 scale;
     vec2 translation;
 } PushConstants;

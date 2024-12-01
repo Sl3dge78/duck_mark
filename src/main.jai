@@ -36,13 +36,13 @@ main :: () {
         engine_update(delta_time);
         game_state_update(*game_state, delta_time);
 
-        frame_data := begin_frame();
-        game_state_draw(*game_state, frame_data);
-        end_frame(frame_data);
+        // frame_data := begin_frame();
+        // game_state_draw(*game_state, frame_data);
+        // end_frame(frame_data);
         reset_temporary_storage();
         
         frame_end := SDL_GetPerformanceCounter();
         delta_time = cast(float)(frame_end - global_engine.frame_start) / cast(float)SDL_GetPerformanceFrequency();
     }
-    vkDeviceWaitIdle(global_renderer.device);
+    SDL_WaitForGPUIdle(global_renderer.device);
 }

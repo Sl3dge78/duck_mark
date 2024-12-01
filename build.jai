@@ -6,15 +6,13 @@
 #import "Bucket_Array";
 #import "File";
 #import "Random";
-#import "Process";
 #import "Thread";
 
-#import "sl3dge-jai"(BACKEND="VULKAN");
+#import "sl3dge-jai"(BACKEND="SDL_GPU");
 #import,dir "modules/sl3dge-jai/modules/jaison";
 
 // #import "jai-tracy"(IMPORT_MODE = .CLIENT, ENABLED = ENABLE_TRACY);
 // ENABLE_TRACY :: true;
-
 #load "src/main.jai";
 #load "src/game_state.jai";
 
@@ -25,9 +23,8 @@
     #import "Compiler";
 
     build_options : Build_Options_During_Compile;
-    // build_options.output_path = "bin/";
+    build_options.output_path = "bin";
     build_options.output_executable_name = "out";
-
     #if OS == .LINUX {
         // build_options.append_linker_arguments = .["/lib/gcc/x86_64-linux-gnu/12/libgcc_eh.a", "/lib/gcc/x86_64-linux-gnu/11/libstdc++.a"];
     } else #if OS == .MACOS {
@@ -41,6 +38,7 @@
 COMPILE_SHADERS :: true;
 
 #run {
+    #import "Process";
     if !COMPILE_SHADERS return;
     shaders := string.[
         "color.frag", 

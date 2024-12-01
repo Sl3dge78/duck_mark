@@ -46,9 +46,9 @@ get_forward :: (using transform: *Transform) -> Vector3 {
     return row(m, 2).xyz;
 }
 
-transform_push_constant :: (using self: *Transform, cmd: VkCommandBuffer, layout: VkPipelineLayout) {
-    mat := get_matrix(self);
-    set_push_constants(mat, cmd, layout);
-}
+// transform_push_constant :: (using self: *Transform, cmd: VkCommandBuffer, layout: VkPipelineLayout) {
+//     mat := get_matrix(self);
+//     set_push_constants(mat, cmd, layout);
+// }
 
 deinit :: (using self: *Transform) { }
