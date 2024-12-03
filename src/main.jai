@@ -23,7 +23,7 @@ main :: () {
             if event.type == {
                 case .QUIT; running = false;
                 case .WINDOW_RESIZED; {
-                            // Renderer.update_window(window); @TODO Migration
+                    // Renderer.update_window(window); @TODO Migration
                 }
                 case; game_state_input_event(*game_state, event);
             }
@@ -36,9 +36,12 @@ main :: () {
         engine_update(delta_time);
         game_state_update(*game_state, delta_time);
 
-        // frame_data := begin_frame();
-        // game_state_draw(*game_state, frame_data);
-        // end_frame(frame_data);
+        render, frame_data := begin_frame();
+        if render {
+            game_state_draw(*game_state, frame_data);
+            engine_draw(*frame_data);
+            end_frame(frame_data);
+        }
         reset_temporary_storage();
         
         frame_end := SDL_GetPerformanceCounter();

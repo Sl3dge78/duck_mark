@@ -281,10 +281,10 @@ game_state_update :: (using state: *Game_State, delta_time: float) {
     // update_ducks(state, delta_time,, logger = runtime_support_default_logger);
 }
 
-/*
-game_state_draw :: (using state: *Game_State, frame_data: *Frame_Data) {
-    render_pass_3d(state, frame_data);
+game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
+    // render_pass_3d(state, frame_data);
 }
+/*
 
 render_pass_3d :: (using state: *Game_State, frame_data: *Frame_Data) {
 
