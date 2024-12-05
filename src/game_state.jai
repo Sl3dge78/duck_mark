@@ -11,10 +11,10 @@ Game_State :: struct {
     font16: Font;
     // shadowmap_finished_semaphore: VkSemaphore;
 
-    // quad_mesh: Mesh;
+    quad_mesh: Mesh;
 
-    // duck_mesh: Mesh;
-    // duck_tex: Texture;
+    duck_mesh: Mesh;
+    duck_tex: Texture;
     // duck_desc: VkDescriptorSet;
 
     player: Player;
@@ -84,27 +84,26 @@ Duck :: struct {
 game_state_create :: (using state: *Game_State) {
     // font16 = font_from_file("res/font.ttf", 16);
 
-    // quad_mesh = load_mesh_from_vertices(.[
-    //     .{.{- 0.5, 0, + 0.5}, UP, .{0, 0}, .{1, 1, 1, 1}},
-    //     .{.{+ 0.5, 0, + 0.5}, UP, .{1, 0}, .{1, 1, 1, 1}},
-    //     .{.{+ 0.5, 0, - 0.5}, UP, .{1, 1}, .{1, 1, 1, 1}},
-    //     .{.{- 0.5, 0, - 0.5}, UP, .{0, 1}, .{1, 1, 1, 1}},], 
-    //     .[0, 1, 2, 0, 2, 3]);
+    quad_mesh = load_mesh_from_vertices(.[
+        .{.{- 0.5, 0, + 0.5}, UP, .{0, 0}, .{1, 1, 1, 1}},
+        .{.{+ 0.5, 0, + 0.5}, UP, .{1, 0}, .{1, 1, 1, 1}},
+        .{.{+ 0.5, 0, - 0.5}, UP, .{1, 1}, .{1, 1, 1, 1}},
+        .{.{- 0.5, 0, - 0.5}, UP, .{0, 1}, .{1, 1, 1, 1}},], 
+        .[0, 1, 2, 0, 2, 3]);
 
-    // duck_mesh = load_mesh_from_file("res/Duck.gltf");
-    // duck_tex = texture_from_file("res/DuckCM.png");
+    duck_mesh = load_mesh_from_file("res/Duck.gltf");
+    duck_tex = texture_from_file("res/DuckCM.png");
     // duck_desc = create_texture_descriptor_set(duck_tex);
 
 
-    // array_reserve(*ducks, MAX_DUCKS);
-    // for 0..INITIAL_DUCKS - 1 {
-    //     duck := new_duck();
-    //     array_add(*ducks, duck);
-    // }
+    array_reserve(*ducks, MAX_DUCKS);
+    for 0..INITIAL_DUCKS - 1 {
+        duck := new_duck();
+        array_add(*ducks, duck);
+    }
 
-    // player.transform.position = .{0, 25, 75};
+    player.transform.position = .{0, 25, 75};
         
-
     // instance_data_buffer = buffer_create(MAX_DUCKS * size_of(Instance_Data), .STORAGE_BUFFER_BIT, "Instance data");
     // instance_set_layout = create_descriptor_set_layout(global_renderer.device, .[.{
     //     binding = 0,
@@ -160,8 +159,10 @@ new_duck :: () -> Duck {
 
 destroy :: (using state: *Game_State) {
     // vkDestroySemaphore(global_renderer.device, shadowmap_finished_semaphore, null);
-    // destroy(*duck_mesh);
-    // destroy(*duck_tex);
+    destroy(*duck_mesh);
+    destroy(duck_tex);
+    array_reset(*ducks);
+    destroy(*quad_mesh);
     // destroy(duck_desc);
     // destroy(*instance_data_buffer);
     // destroy(instance_set_layout);
@@ -282,7 +283,50 @@ game_state_update :: (using state: *Game_State, delta_time: float) {
 }
 
 game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
-    // render_pass_3d(state, frame_data);
+    target := create_color_target(frame_data.target, .CLEAR, clear_color = .{0, 0, 0, 1});
+    render_pass := SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, *target, 1, *global_renderer.depth_stencil_target));
+    defer SDL_EndGPURenderPass(render_pass);
+
+    SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_pipeline);
+    bindings := SDL_GPUTextureSamplerBinding.[
+        .{ global_renderer.empty_texture, global_renderer.sampler },
+        .{ global_renderer.empty_texture, global_renderer.sampler },
+    ];
+    SDL_BindGPUFragmentSamplers(render_pass, 0, bindings.data, bindings.count);
+     {   // Update uniforms
+        lights : [16]Vector4;
+        lights[0] = xyzw(unit_vector(.{-1, -1, -1}), 0);
+
+        size:: 20;
+        light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
+        light_view := make_look_at_matrix(.{0, 0, 0}, lights[0].xyz, .{0, 1, 0}, false);
+        view := player_get_camera_matrix(*state.player);
+
+        matrices := Global_Matrices.{
+            projection = transpose(global_renderer.projection),
+            view = transpose(view),
+            light = transpose(light_proj * light_view),
+            light_count = 1,
+            light_vec = lights,
+        };
+
+        // shadowmap_matrices := Global_Matrices.{
+        //     projection = transpose(light_proj),
+        //     view = transpose(light_view),
+        //     light = matrices.light,
+        //     light_vec = matrices.light_vec
+        // };
+        SDL_PushGPUVertexUniformData(frame_data.cmd, 0, *matrices, size_of(type_of(matrices)));
+        SDL_PushGPUFragmentUniformData(frame_data.cmd, 0, *matrices, size_of(type_of(matrices)));
+    }
+
+    mat := make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2});
+    push_constants := Standard_Push_Constants.{
+        transform = transpose(mat),
+        inverse_transform = transpose(inverse(mat)),
+    };
+    SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
+    draw(quad_mesh, render_pass);
 }
 /*
 

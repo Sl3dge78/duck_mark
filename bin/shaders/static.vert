@@ -1,22 +1,24 @@
 #version 450 core
+#extension GL_ARB_shading_language_include : require
+#include "common.glsl"
  
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUv;
 layout(location = 3) in vec4 aColor;
 
-layout(set = 0, binding = 0) uniform CameraBuffer {
+layout(set = VTX_UNIFORM_SET, binding = 1) uniform constants {
+    mat4 transform;
+    mat4 inv_transform;
+} PushConstants;
+
+layout(set = VTX_UNIFORM_SET, binding = 0) uniform CameraBuffer {
     mat4 proj;
     mat4 view;
     mat4 light;
     uint light_count;
     vec4 light_dir[16];
 } CameraData;
-
-layout(push_constant) uniform constants {
-    mat4 transform;
-    mat4 inv_transform;
-} PushConstants;
 
 layout(location = 0) out struct {
     vec4 color;

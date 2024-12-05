@@ -46,6 +46,7 @@ main :: () {
         
         frame_end := SDL_GetPerformanceCounter();
         delta_time = cast(float)(frame_end - global_engine.frame_start) / cast(float)SDL_GetPerformanceFrequency();
+        global_engine.frame_time = delta_time;
     }
     SDL_WaitForGPUIdle(global_renderer.device);
 }

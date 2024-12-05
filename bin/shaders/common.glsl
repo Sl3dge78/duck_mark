@@ -1,0 +1,4 @@
+#define VTX_SAMPLER_SET  0
+#define VTX_UNIFORM_SET  1
+#define FRAG_SAMPLER_SET 2
+#define FRAG_UNIFORM_SET 3

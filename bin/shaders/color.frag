@@ -1,4 +1,6 @@
 #version 450 core
+#extension GL_ARB_shading_language_include : require
+#include "common.glsl"
 
 layout(location = 0) in struct {
     vec4 color;
@@ -10,16 +12,15 @@ layout(location = 0) in struct {
 
 layout(location = 0) out vec4 outColor;
 
-
-layout(set = 0, binding = 0) uniform UBO {
+layout(set = FRAG_UNIFORM_SET, binding = 0) uniform UBO {
     mat4 proj;
     mat4 view;
     mat4 light;
     vec4 light_dir[16];
     uint light_count;
 };
-layout(set = 1, binding = 0) uniform sampler2D shadow_map;
-layout(set = 2, binding = 0) uniform sampler2D diffuse;
+layout(set = FRAG_SAMPLER_SET, binding = 0) uniform sampler2D shadow_map;
+layout(set = FRAG_SAMPLER_SET, binding = 1) uniform sampler2D diffuse;
 
 const int pcf_count = 3;
 const int pcf_total_texels = (pcf_count * 2 + 1) * (pcf_count * 2 + 1);
@@ -63,7 +64,7 @@ float point_light(vec3 frag_pos) {
 void main() {
     vec3 iterated_color = In.color.rgb;
     iterated_color *= texture(diffuse, In.uv).rgb;
-#if 0
+#if 1
     iterated_color *= point_light(In.world_position.xyz);
 #else
     vec3 L = light_dir[0].xyz;
