@@ -303,9 +303,9 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
         view := player_get_camera_matrix(*state.player);
 
         matrices := Global_Matrices.{
-            projection = transpose(global_renderer.projection),
-            view = transpose(view),
-            light = transpose(light_proj * light_view),
+            projection = global_renderer.projection,
+            view = view,
+            light = light_view * light_proj,
             light_count = 1,
             light_vec = lights,
         };
@@ -322,8 +322,8 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
 
     mat := make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2});
     push_constants := Standard_Push_Constants.{
-        transform = transpose(mat),
-        inverse_transform = transpose(inverse(mat)),
+        transform = mat,
+        inverse_transform = inverse(mat),
     };
     SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
     draw(quad_mesh, render_pass);

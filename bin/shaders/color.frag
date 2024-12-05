@@ -64,7 +64,7 @@ float point_light(vec3 frag_pos) {
 void main() {
     vec3 iterated_color = In.color.rgb;
     iterated_color *= texture(diffuse, In.uv).rgb;
-#if 1
+#if 0
     iterated_color *= point_light(In.world_position.xyz);
 #else
     vec3 L = light_dir[0].xyz;

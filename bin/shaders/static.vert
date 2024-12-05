@@ -29,13 +29,13 @@ layout(location = 0) out struct {
 } Out;
 
 void main() {
-    vec4 world_position = PushConstants.transform * vec4(aPos, 1.0);
+    vec4 world_position = vec4(aPos, 1.0) * PushConstants.transform;
     // mat4 xform = CameraData.proj * CameraData.view * PushConstants.transform;
-    gl_Position = CameraData.proj * CameraData.view * world_position;
+    gl_Position = world_position * CameraData.view * CameraData.proj;
     Out.world_position = world_position;
     Out.color = aColor;
-    Out.normal = mat3(transpose(PushConstants.inv_transform)) * aNormal;    
+    Out.normal = aNormal * mat3(transpose(PushConstants.inv_transform));
     Out.uv = aUv;
-    mat4 light_xform = CameraData.light * PushConstants.transform;
-    Out.pos_light_space = light_xform * vec4(aPos, 1.0);
+    mat4 light_xform = PushConstants.transform * CameraData.light;
+    Out.pos_light_space = vec4(aPos, 1.0) * light_xform;
 }

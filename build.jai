@@ -35,7 +35,7 @@
     set_build_options_dc(build_options);
 }
 
-COMPILE_SHADERS :: false;
+COMPILE_SHADERS :: true;
 
 #run {
     #import "Process";
