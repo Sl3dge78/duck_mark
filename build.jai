@@ -35,27 +35,3 @@
     set_build_options_dc(build_options);
 }
 
-COMPILE_SHADERS :: true;
-
-#run {
-    #import "Process";
-    if !COMPILE_SHADERS return;
-    shaders := string.[
-        "color.frag", 
-        "skinned.vert",
-        "static.vert",
-        "static_inst.vert",
-        "ui.vert",
-        "ui.frag",];
-
-    for shaders {
-        compile_shader(it);
-    }
-}
-
-compile_shader :: (path: string) {
-    output_file := tprint("%.spv", path);
-    
-    process : Process;
-    create_process(*process, "glslang", "-V", path, "-o", output_file, working_directory = "bin/shaders", capture_and_return_output = false, arg_quoting = .QUOTE_IF_NEEDED);
-}

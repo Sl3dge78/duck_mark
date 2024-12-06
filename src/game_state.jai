@@ -9,23 +9,19 @@ DUCKS_PER_FRAME :: 10;
 
 Game_State :: struct {
     font16: Font;
-    // shadowmap_finished_semaphore: VkSemaphore;
 
     quad_mesh: Mesh;
 
     duck_mesh: Mesh;
     duck_tex: Texture;
-    // duck_desc: VkDescriptorSet;
 
     player: Player;
 
     ducks: [..]Duck;
 
-    // instance_set_layout: VkDescriptorSetLayout;
-    // instance_data_desc_set : VkDescriptorSet;
-    // instance_data_buffer: Buffer;
+    instance_data_buffer: Buffer;
 
-    // material: Material;
+    material: Material;
 
     thread_group: Thread_Group;
 }
@@ -35,54 +31,7 @@ Duck :: struct {
     velocity: Vector3;
 }
 
-// create_material :: (instance_set_layout: VkDescriptorSetLayout) -> Material {
-//     result: Material;
-
-//     vtx := create_shader_module(global_renderer.device, "shaders/static_inst.vert.spv");
-//     defer vkDestroyShaderModule(global_renderer.device, vtx, null);
-
-//     frag := create_shader_module(global_renderer.device, "shaders/color.frag.spv");
-//     defer vkDestroyShaderModule(global_renderer.device, frag, null);
-
-//     {   // Shadowmap   
-//         builder: Pipeline_Builder;
-//         Pipeline_Builder.add_descriptor_set_layouts(*builder, 
-//             global_renderer.camera_set_layout,
-//             global_renderer.empty_set_layout,
-//             global_renderer.empty_set_layout,
-//             instance_set_layout);
-//         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
-//         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
-//         Pipeline_Builder.rasterization_state_depth_bias(*builder, 1.25, 0, 1.75);
-//         Pipeline_Builder.viewport_state(*builder, Renderer.SHADOWMAP_SIZE, Renderer.SHADOWMAP_SIZE);
-//         Pipeline_Builder.depth_format(*builder, Renderer.SHADOWMAP_FORMAT);
-//         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
-//         result.pipelines[Pipeline_Kind.SHADOWMAP] = Pipeline_Builder.build(*builder, global_renderer.device);
-//         log("Shadowmap pipeline created.");
-//     }
-
-//     {   // Color   
-//         builder: Pipeline_Builder;
-//         Pipeline_Builder.add_descriptor_set_layouts(*builder, 
-//             global_renderer.camera_set_layout,
-//             global_renderer.shadowmap_layout,
-//             global_renderer.single_texture_layout,
-//             instance_set_layout);
-//         Pipeline_Builder.add_vertex_input(*builder, Standard_Vertex);
-//         Pipeline_Builder.add_shader(*builder, .VERTEX_BIT, vtx, "main");
-//         Pipeline_Builder.add_shader(*builder, .FRAGMENT_BIT, frag, "main");
-//         Pipeline_Builder.add_dynamic_state(*builder, .VIEWPORT, .SCISSOR);
-//         Pipeline_Builder.color_format(*builder, global_renderer.swapchain.format.format);
-//         Pipeline_Builder.depth_format(*builder, Renderer.DEPTH_FORMAT);
-//         Pipeline_Builder.set_push_constants(*builder, .VERTEX_BIT, size_of(Standard_Push_Constants));
-//         result.pipelines[Pipeline_Kind.COLOR] = Pipeline_Builder.build(*builder, global_renderer.device);
-//         log("Color pipeline created.");
-//     }
-//     return result;
-// }
-
 game_state_create :: (using state: *Game_State) {
-    // font16 = font_from_file("res/font.ttf", 16);
 
     quad_mesh = load_mesh_from_vertices(.[
         .{.{- 0.5, 0, + 0.5}, UP, .{0, 0}, .{1, 1, 1, 1}},
@@ -93,8 +42,7 @@ game_state_create :: (using state: *Game_State) {
 
     duck_mesh = load_mesh_from_file("res/Duck.gltf");
     duck_tex = texture_from_file("res/DuckCM.png");
-    // duck_desc = create_texture_descriptor_set(duck_tex);
-
+    material = create_material("shaders/static_inst.vert.spv", "shaders/color.frag.spv");
 
     array_reserve(*ducks, MAX_DUCKS);
     for 0..INITIAL_DUCKS - 1 {
@@ -128,25 +76,6 @@ game_state_create :: (using state: *Game_State) {
     start(*thread_group);
 }
 
-update_instance_data_buffer :: (using self: *Game_State) {
-    // buffer_info := VkDescriptorBufferInfo.{
-    //     buffer = instance_data_buffer.handle,
-    //     offset = 0,
-    //     range = instance_data_buffer.size,
-    // };
-
-    // writes := VkWriteDescriptorSet.[.{
-    //     dstSet = instance_data_desc_set,
-    //     dstBinding = 0,
-    //     dstArrayElement = 0,
-    //     descriptorType = .STORAGE_BUFFER,
-    //     descriptorCount = 1,
-    //     pBufferInfo = *buffer_info
-    // }];
-    // vkUpdateDescriptorSets(global_renderer.device, writes.count, writes.data, 0, null);
-
-}
-
 new_duck :: () -> Duck {
     vel := .{
         1 - 2 * random_get_zero_to_one(), 
@@ -166,7 +95,7 @@ destroy :: (using state: *Game_State) {
     // destroy(duck_desc);
     // destroy(*instance_data_buffer);
     // destroy(instance_set_layout);
-    // destroy(*material);
+    destroy(material);
     shutdown(*thread_group);
 }
 
@@ -287,7 +216,7 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
     render_pass := SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, *target, 1, *global_renderer.depth_stencil_target));
     defer SDL_EndGPURenderPass(render_pass);
 
-    SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_pipeline);
+    SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.color);
     bindings := SDL_GPUTextureSamplerBinding.[
         .{ global_renderer.empty_texture, global_renderer.sampler },
         .{ global_renderer.empty_texture, global_renderer.sampler },
