@@ -10,9 +10,9 @@ layout(location = 0) in struct {
     vec4 world_position;
 } In;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 out_color;
 
-layout(set = FRAG_UNIFORM_SET, binding = 0) uniform UBO {
+layout(set = FRAG_UNIFORM_SET, binding = 0) uniform CameraBuffer {
     mat4 proj;
     mat4 view;
     mat4 light;
@@ -35,20 +35,27 @@ const float quadratic = 0.02;
 float shadow(vec4 shadow_coord) {
     vec2 uv = shadow_coord.xy * 0.5 + 0.5; // @TODO: Do depth calc in -1 to 1 range
     float current = shadow_coord.z;
-    int total = 0;
     float x = 1.0 - max(dot(In.normal, light_dir[0].xyz), 0.0);
-    float bias = max(2.5 * x, 1.0);
-    bias *= texel_size;
-    for(int x = -pcf_count; x <= pcf_count; x++) {
-        for(int y = -pcf_count; y <= pcf_count; y++) {
-            float closest = texture(shadow_map, uv + vec2(x, y) * texel_size).r;        
-            if (current - bias > closest) {
-                total += 1;
-            }
-        }
+    float bias = max(2.5 * x, 1.0) * texel_size;
+
+    // int total = 0;
+    // for(int x = -pcf_count; x <= pcf_count; x++) {
+    //     for(int y = -pcf_count; y <= pcf_count; y++) {
+    //         float closest = texture(shadow_map, uv + vec2(x, y) * texel_size).r;        
+    //         if (current - bias > closest) {
+    //             total += 1;
+    //         }
+    //     }
+    // }
+    // float result = float(total) / float(pcf_total_texels);
+    // return 1.0 - result;
+
+    float closest = texture(shadow_map, uv).r;        
+    if(current > closest) { // We are in the shadow
+        return 1.0;
+    } else {
+        return 0;
     }
-    float result = float(total) / float(pcf_total_texels);
-    return 1.0 - result;
 }
 
 float point_light(vec3 frag_pos) {
@@ -64,18 +71,18 @@ float point_light(vec3 frag_pos) {
 void main() {
     vec3 iterated_color = In.color.rgb;
     iterated_color *= texture(diffuse, In.uv).rgb;
-#if 0
-    iterated_color *= point_light(In.world_position.xyz);
-#else
-    vec3 L = light_dir[0].xyz;
-    float NdotL = max(dot(In.normal, -L), 0.0);
-    float shadow = shadow(In.pos_light_space / In.pos_light_space.w);
-    float factor = max(min(shadow, sqrt(NdotL)), 0.2);
-    iterated_color *= factor; 
+    vec3 l = -light_dir[0].xyz;
+    float n_dot_l = max(dot(In.normal, l), 0.0);
+    vec4 pos_light = In.pos_light_space / In.pos_light_space.w;
+    float shadow = shadow(pos_light);
+    // float factor = max(min(shadow, sqrt(n_dot_l)), 0.2);
+    // iterated_color *= factor; 
+    iterated_color *= shadow; 
 
     vec3 ambient = ambient_color * 0.1;
     iterated_color += ambient * (1.0 - factor);
-#endif
-    outColor = vec4(iterated_color, 1);
+    out_color = vec4(iterated_color, 1);
+    vec2 uv = pos_light.xy * 0.5 + 0.5; // @TODO: Do depth calc in -1 to 1 range
+    // out_color = vec4(shadow, 0, 0, 1);
 }
 
