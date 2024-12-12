@@ -217,7 +217,7 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
     };
     // matrices = shadow_matrices;
 
-    {   // Shadow pass
+    if true {   // Shadow pass
         render_pass := SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, null, 0, *global_renderer.shadowmap_target));
         defer SDL_EndGPURenderPass(render_pass);
 

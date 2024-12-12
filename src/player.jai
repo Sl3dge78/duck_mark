@@ -25,15 +25,17 @@ player_update :: (using player: *Player, game_state: *Game_State, delta_time: fl
     look_at(*transform, forward);
     
     right := cross(forward, Vector3.{0, 1, 0});
+    speed : float = 1;
+    if key_down(.SDL_SCANCODE_LSHIFT) then speed *= 10;
 
     // Free cam
     velocity: Vector3;
-    if key_down(.SDL_SCANCODE_W) then velocity += forward;
-    if key_down(.SDL_SCANCODE_S) then velocity -= forward;
-    if key_down(.SDL_SCANCODE_D) then velocity += right;
-    if key_down(.SDL_SCANCODE_A) then velocity -= right;
-    if key_down(.SDL_SCANCODE_E) then velocity += .{0, 1, 0};
-    if key_down(.SDL_SCANCODE_Q) then velocity -= .{0, 1, 0};
+    if key_down(.SDL_SCANCODE_W) then velocity += forward * speed;
+    if key_down(.SDL_SCANCODE_S) then velocity -= forward * speed;
+    if key_down(.SDL_SCANCODE_D) then velocity += right * speed;
+    if key_down(.SDL_SCANCODE_A) then velocity -= right * speed;
+    if key_down(.SDL_SCANCODE_E) then velocity += .{0, 1, 0} * speed;
+    if key_down(.SDL_SCANCODE_Q) then velocity -= .{0, 1, 0} * speed;
 
     transform.position += velocity * 5 * delta_time;
 

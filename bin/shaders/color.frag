@@ -22,7 +22,7 @@ layout(set = FRAG_UNIFORM_SET, binding = 0) uniform CameraBuffer {
 layout(set = FRAG_SAMPLER_SET, binding = 0) uniform sampler2D shadow_map;
 layout(set = FRAG_SAMPLER_SET, binding = 1) uniform sampler2D diffuse;
 
-const int pcf_count = 3;
+const int pcf_count = 0;
 const int pcf_total_texels = (pcf_count * 2 + 1) * (pcf_count * 2 + 1);
 const float map_size = 2048.0;
 const float texel_size = 1.0 / map_size;
@@ -33,7 +33,7 @@ const float linear = 0.5;
 const float quadratic = 0.02;
 
 float shadow(vec4 shadow_coord) {
-    vec2 uv = shadow_coord.xy * 0.5 + 0.5; // @TODO: Do depth calc in -1 to 1 range
+    vec2 uv = -shadow_coord.xy * 0.5 + 0.5;
     float current = shadow_coord.z;
     float x = 1.0 - max(dot(In.normal, light_dir[0].xyz), 0.0);
     float bias = max(2.5 * x, 1.0) * texel_size;
@@ -52,9 +52,9 @@ float shadow(vec4 shadow_coord) {
 
     float closest = texture(shadow_map, uv).r;        
     if(current > closest) { // We are in the shadow
-        return 1.0;
+        return 0.0;
     } else {
-        return 0;
+        return 1.0;
     }
 }
 
@@ -75,14 +75,17 @@ void main() {
     float n_dot_l = max(dot(In.normal, l), 0.0);
     vec4 pos_light = In.pos_light_space / In.pos_light_space.w;
     float shadow = shadow(pos_light);
-    // float factor = max(min(shadow, sqrt(n_dot_l)), 0.2);
-    // iterated_color *= factor; 
-    iterated_color *= shadow; 
+    float factor = max(min(shadow, sqrt(n_dot_l)), 0.2);
+    iterated_color *= factor; 
 
     vec3 ambient = ambient_color * 0.1;
     iterated_color += ambient * (1.0 - factor);
     out_color = vec4(iterated_color, 1);
-    vec2 uv = pos_light.xy * 0.5 + 0.5; // @TODO: Do depth calc in -1 to 1 range
-    // out_color = vec4(shadow, 0, 0, 1);
+
+    vec2 uv = pos_light.xy * 0.5 + 0.5;
+    float closest = texture(shadow_map, uv).r;        
+    float current = pos_light.z;
+    // out_color = vec4(closest, current, 0, 1);
+    // out_color = vec4(shadow, shadow, shadow, 1);
 }
 
