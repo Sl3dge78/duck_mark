@@ -196,24 +196,25 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
     lights[0] = xyzw(unit_vector(.{-1, -1, -1}), 0);
 
     size:: 40;
-    light_proj := orthographic_projection_matrix(size, -size, -size, size, -size, size, true);
+    light_proj := orthographic_projection_matrix(-size, size, -size, size, -size, size, true);
     light_view := make_look_at_matrix(.{0, 0, 0}, lights[0].xyz, .{0, 1, 0}, false);
+    light_matrix := light_proj * light_view;
     view := player_get_camera_matrix(*state.player);
 
     matrices := Global_Matrices.{
-        projection = global_renderer.projection,
-        view = view,
-        light = light_proj * light_view,
+        projection = transpose(global_renderer.projection),
+        view = transpose(view),
+        light = transpose(light_matrix),
         light_count = 1,
-        light_vec = lights,
+        light_vec[0] = lights[0],
     };
 
     shadow_matrices := Global_Matrices.{
-        projection = light_proj,
-        view = light_view,
-        light = light_proj * light_view,
+        projection = transpose(light_proj),
+        view = transpose(light_view),
+        light = transpose(light_matrix),
         light_count = 1,
-        light_vec = lights,
+        light_vec[0] = lights[0],
     };
     // matrices = shadow_matrices;
 
@@ -221,14 +222,14 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
         render_pass := SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, null, 0, *global_renderer.shadowmap_target));
         defer SDL_EndGPURenderPass(render_pass);
 
-        SDL_PushGPUVertexUniformData(frame_data.cmd, 0, *shadow_matrices, size_of(type_of(shadow_matrices)));
 
         {   // Quad
             SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.shadowmap);
+            SDL_PushGPUVertexUniformData(frame_data.cmd, 0, *shadow_matrices, size_of(type_of(shadow_matrices)));
             mat := make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2});
             push_constants := Standard_Push_Constants.{
-                transform = mat,
-                inverse_transform = inverse(mat),
+                transform = transpose(mat),
+                inverse_transform = transpose(inverse(mat)),
             };
             SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
             draw(quad_mesh, render_pass);
@@ -236,10 +237,10 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
 
         {   // Ducks
             SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.shadowmap);
-            mat := make_translation_matrix4(.{0, 10, 0}) * make_scale_matrix4(.{0.01, 0.01, 0.01});
+            mat := make_translation_matrix4(.{0, 1, 0}) * make_scale_matrix4(.{0.01, 0.01, 0.01});
             push_constants := Standard_Push_Constants.{
-                transform = mat,
-                inverse_transform = inverse(mat),
+                transform = transpose(mat),
+                inverse_transform = transpose(inverse(mat)),
             };
             SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
             draw(duck_mesh, render_pass, 1); // xx ducks.count);
@@ -254,11 +255,11 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
         render_pass := SDL_NullCheck(SDL_BeginGPURenderPass(frame_data.cmd, *target, 1, *global_renderer.depth_stencil_target));
         defer SDL_EndGPURenderPass(render_pass);
 
+        SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.color);
         SDL_PushGPUVertexUniformData(frame_data.cmd, 0, *matrices, size_of(type_of(matrices)));
         SDL_PushGPUFragmentUniformData(frame_data.cmd, 0, *matrices, size_of(type_of(matrices)));
 
         {   // Quad
-            SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.color);
             bindings := SDL_GPUTextureSamplerBinding.[
                 .{ global_renderer.shadowmap, global_renderer.sampler },
                 .{ global_renderer.empty_texture, global_renderer.sampler },
@@ -266,8 +267,8 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
             SDL_BindGPUFragmentSamplers(render_pass, 0, bindings.data, bindings.count);
             mat := make_scale_matrix4(.{AREA_SIZE * 2, 1, AREA_SIZE * 2});
             push_constants := Standard_Push_Constants.{
-                transform = mat,
-                inverse_transform = inverse(mat),
+                transform = transpose(mat),
+                inverse_transform = transpose(inverse(mat)),
             };
             SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
             draw(quad_mesh, render_pass);
@@ -279,10 +280,10 @@ game_state_draw :: (using state: *Game_State, frame_data: Frame_Data) {
             SDL_BindGPUGraphicsPipeline(render_pass, global_renderer.static_mesh_material.color);
             binding := SDL_GPUTextureSamplerBinding.{ duck_tex, global_renderer.sampler };
             SDL_BindGPUFragmentSamplers(render_pass, 1, *binding, 1);
-            mat := make_translation_matrix4(.{0, 10, 0})* make_scale_matrix4(.{0.01, 0.01, 0.01});
+            mat := make_translation_matrix4(.{0, 1, 0})* make_scale_matrix4(.{0.01, 0.01, 0.01});
             push_constants := Standard_Push_Constants.{
-                transform = mat,
-                inverse_transform = inverse(mat),
+                transform = transpose(mat),
+                inverse_transform = transpose(inverse(mat)),
             };
             SDL_PushGPUVertexUniformData(frame_data.cmd, 1, *push_constants, size_of(type_of(push_constants)));
             draw(duck_mesh, render_pass, 1); // xx ducks.count);

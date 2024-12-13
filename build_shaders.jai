@@ -24,5 +24,7 @@ compile_shader :: (path: string) {
     
     process : Process;
     create_process(*process, "glslang", "-V", path, "-o", output_file, working_directory = "bin/shaders", capture_and_return_output = false, arg_quoting = .QUOTE_IF_NEEDED);
+    log("% > %", path, output_file);
     create_process(*process, "shadercross", output_file, "-o", metadata_file, working_directory = "bin/shaders", capture_and_return_output = false, arg_quoting = .QUOTE_IF_NEEDED);
+    log("% > %", path, metadata_file);
 }
