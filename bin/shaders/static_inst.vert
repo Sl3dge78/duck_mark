@@ -26,6 +26,7 @@ layout(location = 0) out struct {
 struct InstanceData {
     mat4 xform;
     mat4 inverse;
+    float velocity;
 };
 
 layout(set = VTX_STORAGE_BUFFER_SET, binding = 0) readonly buffer InstanceBuffer {
