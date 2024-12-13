@@ -8,7 +8,7 @@
 #import "Random";
 #import "Thread";
 
-#import "sl3dge-jai"(BACKEND="SDL_GPU");
+#import "sl3dge-jai";
 #import,dir "modules/sl3dge-jai/modules/jaison";
 
 // #import "jai-tracy"(IMPORT_MODE = .CLIENT, ENABLED = ENABLE_TRACY);

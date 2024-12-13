@@ -61,7 +61,6 @@ game_state_create :: (using state: *Game_State) {
             it.velocity = xyzw(.{cos(angle), 0, sin(angle) } * dist, 0);
             mat := make_translation_matrix4(.{0, 25, 0}) * make_scale_matrix4(.{0.01, 0.01, 0.01});
             initial_pos := Vector3.{0, 25, 0};
-            // mat := make_look_at_matrix(initial_pos, initial_pos + it.velocity.xyz, .{0, 1, 0}, false) * make_scale_matrix4(.{0.01, 0.01, 0.01});
             it.xform = transpose(mat);
             it.inverse = transpose(inverse(it.xform));
         }
@@ -88,10 +87,7 @@ game_state_update :: (using state: *Game_State, delta_time: float) {
 
     if duck_count < MAX_DUCKS && mouse_down(.LEFT) {
         console_message("Nb Ducks: %", duck_count);//, NB Vertices : %", duck_count, 2399);
-        for 0..DUCKS_PER_FRAME {
-            duck_count += 1;
-            if duck_count >= MAX_DUCKS then break;
-        }
+        duck_count += DUCKS_PER_FRAME;
     }
 
     compute_ducks(state, delta_time);
