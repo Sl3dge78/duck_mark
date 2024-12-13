@@ -33,13 +33,11 @@ layout(set = VTX_STORAGE_BUFFER_SET, binding = 0) readonly buffer InstanceBuffer
 };
 
 void main() {
-    vec4 world_position = vec4(in_pos, 1.0) * data[gl_InstanceIndex].xform;
-    gl_Position = world_position * view * proj;
+    vec4 world_position = data[gl_InstanceIndex].xform * vec4(in_pos, 1.0);
+    gl_Position = proj * view * world_position;
     Out.world_position = world_position;
     Out.color = in_color;
-    Out.normal = in_normal * mat3(data[gl_InstanceIndex].inverse);
+    Out.normal = mat3(data[gl_InstanceIndex].inverse) * in_normal;
     Out.uv = in_uv;
-
-    mat4 light_xform = data[gl_InstanceIndex].xform * light;
-    Out.pos_light_space = vec4(in_pos, 1.0) * light_xform;
+    Out.pos_light_space = light * world_position;
 }

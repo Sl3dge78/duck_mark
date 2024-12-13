@@ -35,6 +35,5 @@ void main() {
     Out.color = in_color;
     Out.normal = mat3(transpose(inv_transform)) * in_normal;
     Out.uv = in_uv;
-
     Out.pos_light_space = light * world_position;
 }
