@@ -21,9 +21,9 @@ layout(set = COMP_UNIFORM_BUFFER_SET, binding = 0) uniform GlobalData {
 };
 
 void main () {
-    float time_step = 1.0/60.0;
+    // float time_step = 1.0/60.0;
     InstanceData it = data[gl_WorkGroupID.x];
-    it.xform[3].xyz += it.velocity.xyz * time_step; //delta_time;
+    it.xform[3].xyz += it.velocity.xyz * delta_time;
 
     if(it.xform[3].x > area_size || it.xform[3].x < -area_size) {
         it.velocity.x *= -1;
@@ -40,7 +40,7 @@ void main () {
     }
     it.xform[3].y = max(it.xform[3].y, 0);
 
-    it.velocity.y -= 9.81 * time_step;//delta_time;
+    it.velocity.y -= 9.81 * delta_time;
 
     it.inverse = inverse(it.xform);
     data[gl_WorkGroupID.x] = it;

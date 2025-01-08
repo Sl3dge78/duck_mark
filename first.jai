@@ -1,4 +1,3 @@
-
 #import "Basic"()(MEMORY_DEBUGGER = true);
 #import "Math";
 #import "System";
@@ -14,7 +13,6 @@
 // #import "jai-tracy"(IMPORT_MODE = .CLIENT, ENABLED = ENABLE_TRACY);
 // ENABLE_TRACY :: true;
 #load "src/main.jai";
-#load "src/game_state.jai";
 
 #load "src/player.jai";
 #load "src/transform.jai";
